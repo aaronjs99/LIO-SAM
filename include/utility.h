@@ -15,7 +15,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -53,6 +53,46 @@
 #include <array>
 #include <thread>
 #include <mutex>
+#include <unordered_map>
+
+namespace flann
+{
+namespace serialization
+{
+
+template<typename K, typename V>
+struct Serializer<std::unordered_map<K, V> >
+{
+    template<typename InputArchive>
+    static inline void load(InputArchive& ar, std::unordered_map<K, V>& map_val)
+    {
+        size_t size;
+        ar & size;
+        map_val.clear();
+        for (size_t i = 0; i < size; ++i)
+        {
+            K key;
+            ar & key;
+            V value;
+            ar & value;
+            map_val[key] = value;
+        }
+    }
+
+    template<typename OutputArchive>
+    static inline void save(OutputArchive& ar, const std::unordered_map<K, V>& map_val)
+    {
+        ar & map_val.size();
+        for (typename std::unordered_map<K, V>::const_iterator it = map_val.begin(); it != map_val.end(); ++it)
+        {
+            ar & it->first;
+            ar & it->second;
+        }
+    }
+};
+
+} // namespace serialization
+} // namespace flann
 
 using namespace std;
 
@@ -79,6 +119,7 @@ public:
     string baselinkFrame;
     string odometryFrame;
     string mapFrame;
+    bool publishTf;
 
     // GPS Settings
     bool useImuHeadingInitialization;
@@ -164,6 +205,7 @@ public:
         nh.param<std::string>("lio_sam/baselinkFrame", baselinkFrame, "base_link");
         nh.param<std::string>("lio_sam/odometryFrame", odometryFrame, "odom");
         nh.param<std::string>("lio_sam/mapFrame", mapFrame, "map");
+        nh.param<bool>("lio_sam/publish_tf", publishTf, true);
 
         nh.param<bool>("lio_sam/useImuHeadingInitialization", useImuHeadingInitialization, false);
         nh.param<bool>("lio_sam/useGpsElevation", useGpsElevation, false);
